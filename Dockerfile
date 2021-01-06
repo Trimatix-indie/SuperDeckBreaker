@@ -15,4 +15,4 @@ RUN apt-get update && \
 VOLUME /decks
 VOLUME /logs
 
-ENTRYPOINT ["python3", "./main.py"]
+ENTRYPOINT ["./run.command"]
