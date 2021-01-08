@@ -44,6 +44,10 @@ def loadCfg(cfgFile : str):
             setattr(cfg, varname, UninitializedBasedEmoji(config[varname]))
         elif varname in cfg.emojiListVars:
             setattr(cfg, varname, [UninitializedBasedEmoji(item) for item in config[varname]])
+        elif varname in cfg.pathVars:
+            if type(config[varname]) != str:
+                raise TypeError("Unexpected type for config variable " + varname + ": Expected str, received " + type(config[varname]).__name__)
+            setattr(cfg, varname, os.path.normpath(config[varname]))
         else:
             default = getattr(cfg, varname)
             if type(config[varname]) != type(default):
