@@ -3,32 +3,62 @@ import toml
 import os
 from ..lib.emojis import UninitializedBasedEmoji
 
-ignoredVarNames = ("__name__", "__doc__", "__package__", "__loader__", "__spec__", "__file__", "__cached__", "__builtins__", "UninitializedBasedEmoji", "emojiVars", "emojiListVars", "pathVars")
+ignoredVarNames = ("__name__", "__doc__", "__package__", "__loader__", "__spec__", "__file__", "__cached__", "__builtins__", "UninitializedBasedEmoji")
+emojiVars = []
+emojiListVars = []
 
-def makeDefaultCfg():
-    cfgBase = "defaultCfg"
-    cfgPath = "defaultCfg"
+for varname, varvalue in cfg.defaultEmojis.items():
+    if type(varvalue) == UninitializedBasedEmoji:
+        emojiVars.append(varname)
+        continue
+    elif type(varvalue) == list:
+        onlyEmojis = True
+        for item in varvalue:
+            if type(item) != UninitializedBasedEmoji:
+                onlyEmojis = False
+                break
+        if onlyEmojis:
+            emojiListVars.append(varname)
+            continue
+    raise ValueError("Invalid config variable in cfg.defaultEmojis: Emoji config variables must be either UninitializedBasedEmoji or List[UninitializedBasedEmoji]")
+    
+
+
+def makeDefaultCfg(fileName="defaultCfg.toml"):
+    if not fileName.endswith(".toml"):
+        print(fileName)
+        raise ValueError("file name must end with .toml")
+
+    fileName = os.path.abspath(os.path.normpath(fileName))
+    if not os.path.isdir(os.path.dirname(fileName)):
+        os.makedirs(os.path.dirname(fileName))
+    
+    fileName = fileName.split(".toml")[0]
+    cfgPath = fileName
     fileExt = ".toml"
+
     currentExt = 0
     while os.path.exists(cfgPath + fileExt):
         currentExt += 1
-        cfgPath = cfgBase + "-" + str(currentExt)
+        cfgPath = fileName + "-" + str(currentExt)
 
     cfgPath += fileExt
 
     defaults = {varname: varvalue for varname, varvalue in vars(cfg).items() if varname not in ignoredVarNames}
-    for varname in cfg.emojiVars:
-        defaults[varname] = getattr(cfg, varname).value
+    for varname in emojiVars:
+        defaults["defaultEmojis"][varname] = cfg.defaultEmojis[varname].value
     
-    for varname in cfg.emojiListVars:
+    for varname in emojiListVars:
         working = []
-        for item in defaults[varname]:
+        for item in defaults["defaultEmojis"][varname]:
             working.append(item.value)
             
-        defaults[varname] = working
+        defaults["defaultEmojis"][varname] = working
 
     with open(cfgPath, "w", encoding="utf-8") as f:
         f.write(toml.dumps(defaults))
+
+    print("Created " + cfgPath)
 
 def loadCfg(cfgFile : str):
     if not cfgFile.endswith(".toml"):
@@ -40,14 +70,12 @@ def loadCfg(cfgFile : str):
     for varname in config:
         if varname in ignoredVarNames or varname not in cfg.__dict__:
             raise NameError("Unrecognised config variable name: " + varname)
-        elif varname in cfg.emojiVars:
-            setattr(cfg, varname, UninitializedBasedEmoji(config[varname]))
-        elif varname in cfg.emojiListVars:
-            setattr(cfg, varname, [UninitializedBasedEmoji(item) for item in config[varname]])
-        elif varname in cfg.pathVars:
-            if type(config[varname]) != str:
-                raise TypeError("Unexpected type for config variable " + varname + ": Expected str, received " + type(config[varname]).__name__)
-            setattr(cfg, varname, os.path.normpath(config[varname]))
+        elif varname == "defaultEmojis":
+            for emojiName in config[varname]:
+                if emojiName in emojiVars:
+                    cfg.defaultEmojis[emojiName] = UninitializedBasedEmoji(config["defaultEmojis"][emojiName])
+                elif varname in emojiListVars:
+                    cfg.defaultEmojis[emojiName] = [UninitializedBasedEmoji(item) for item in config["defaultEmojis"][emojiName]]
         else:
             default = getattr(cfg, varname)
             if type(config[varname]) != type(default):

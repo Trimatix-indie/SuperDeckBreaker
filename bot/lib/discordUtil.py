@@ -73,7 +73,7 @@ async def startLongProcess(message : Message):
     :param discord.Message message: The message to react to
     """
     try:
-        await message.add_reaction(cfg.longProcessEmoji.sendable)
+        await message.add_reaction(cfg.defaultEmojis.longProcess.sendable)
     except (HTTPException, Forbidden):
         pass
 
@@ -84,7 +84,7 @@ async def endLongProcess(message : Message):
     :param discord.Message message: The message to remove the reaction from
     """
     try:
-        await message.remove_reaction(cfg.longProcessEmoji.sendable, botState.client.user)
+        await message.remove_reaction(cfg.defaultEmojis.longProcess.sendable, botState.client.user)
     except (HTTPException, Forbidden):
         pass
 
@@ -187,7 +187,7 @@ async def sendDM(text, user, owningMsg, exceptOnFail=False, reactOnDM=True, embe
         await owningMsg.channel.send(":x: I can't DM you, " + user.display_name + "! Please enable DMs from users who are not friends.")
     else:
         if sendDM and reactOnDM:
-            await owningMsg.add_reaction(cfg.dmSentEmoji.sendable)
+            await owningMsg.add_reaction(cfg.defaultEmojis.dmSent.sendable)
 
     return dmMsg
 

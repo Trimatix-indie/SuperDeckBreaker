@@ -1,3 +1,25 @@
+# Set up bot config
+
+from .cfg import cfg, versionInfo
+import os
+
+for varname in cfg.paths:
+    cfg.paths[varname] = os.path.normpath(cfg.paths[varname])
+    if not os.path.isdir(os.path.dirname(cfg.paths[varname])):
+        os.makedirs(os.path.dirname(cfg.paths[varname]))
+
+
+class ConfigProxy:
+    def __init__(self, attrs):
+        self.attrNames = attrs.keys()
+        for varname, varvalue in attrs.items():
+            setattr(self, varname, varvalue)
+
+cfg.defaultEmojis = ConfigProxy(cfg.defaultEmojis)
+cfg.timeouts = ConfigProxy(cfg.timeouts)
+cfg.paths = ConfigProxy(cfg.paths)
+
+
 # Discord Imports
 
 import discord
@@ -10,9 +32,8 @@ from datetime import datetime
 import os
 import traceback
 import asyncio
-import aiohttp
-import sys
 import signal
+import aiohttp
 
 
 # BASED Imports
@@ -20,7 +41,6 @@ import signal
 from . import lib, botState, logging
 from .databases import guildDB, reactionMenuDB, userDB
 from .scheduling import TimedTaskHeap, TimedTask
-from .cfg import cfg, versionInfo
 
 
 async def checkForUpdates():
@@ -75,11 +95,11 @@ class BasedClient(ClientBaseClass):
         - the reaction menus database
         """
         if self.storeUsers:
-            lib.jsonHandler.saveDB(cfg.userDBPath, botState.usersDB)
+            lib.jsonHandler.saveDB(cfg.paths.usersDB, botState.usersDB)
         if self.storeGuilds:
-            lib.jsonHandler.saveDB(cfg.guildDBPath, botState.guildsDB)
+            lib.jsonHandler.saveDB(cfg.paths.guildsDB, botState.guildsDB)
         if self.storeMenus:
-            lib.jsonHandler.saveDB(cfg.reactionMenusDBPath, botState.reactionMenusDB)
+            lib.jsonHandler.saveDB(cfg.paths.reactionMenusDB, botState.reactionMenusDB)
         botState.logger.save()
         if not self.storeNone:
             print(datetime.now().strftime("%H:%M:%S: Data saved!"))
@@ -109,6 +129,7 @@ class BasedClient(ClientBaseClass):
         self.saveAllDBs()
         await botState.httpClient.close()
         print(datetime.now().strftime("%H:%M:%S: Shutdown complete."))
+        await botState.httpClient.close()
 
 
 
@@ -222,65 +243,43 @@ async def on_ready():
     if cfg.cardStorageMethod not in ["discord", "local"]:
         raise ValueError("Unsupported cfg.cardStorageMethod: " + str(cfg.cardStorageMethod))
 
-    for path in [cfg.baseSaveDataFolder, cfg.loggingFolderPath, cfg.decksFolderPath]:
-        if not os.path.isdir(path):
-            os.makedirs(path)
-
-
     ##### EMOJI INITIALIZATION #####
-    # Iterate over uninitiaizedEmoji attributes in cfg
-    # for varName, varValue in vars(cfg).items():
-    #     if isinstance(varValue, lib.emojis.UninitializedBasedEmoji):
-    #         uninitEmoji = varValue.value
-    #         # Create BasedEmoji instances based on the type of the uninitialized value
-    #         if isinstance(uninitEmoji, int):
-    #             setattr(cfg, varName, lib.emojis.BasedEmoji(id=uninitEmoji))
-    #         elif isinstance(uninitEmoji, str):
-    #             setattr(cfg, varName, lib.emojis.BasedEmoji.fromStr(uninitEmoji))
-    #         elif isinstance(uninitEmoji, dict):
-    #             setattr(cfg, varName, lib.emojis.BasedEmoji.fromDict(uninitEmoji))
-    #         # Unrecognised uninitialized value
-    #         else:
-    #             raise ValueError("Unrecognised UninitializedBasedEmoji value type. Expecting int, str or dict, given '" + type(uninitEmoji).__name__ + "'")
+    emojiVars = []
+    emojiListVars = []
 
-    for varname in cfg.emojiVars:
-        uninitEmoji = getattr(cfg, varname).value
-        # Create BasedEmoji instances based on the type of the uninitialized value
-        if isinstance(uninitEmoji, int):
-            setattr(cfg, varname, lib.emojis.BasedEmoji(id=uninitEmoji))
-        elif isinstance(uninitEmoji, str):
-            setattr(cfg, varname, lib.emojis.BasedEmoji.fromStr(uninitEmoji))
-        elif isinstance(uninitEmoji, dict):
-            setattr(cfg, varname, lib.emojis.BasedEmoji.fromDict(uninitEmoji))
-        # Unrecognised uninitialized value
-        else:
-            raise ValueError("Unrecognised UninitializedBasedEmoji value type. Expecting int, str or dict, given '" + type(uninitEmoji).__name__ + "'")
-
-    for varname in cfg.emojiListVars:
-        working = []
-        for item in getattr(cfg, varname):
-            uninitEmoji = item.value
-            # Create BasedEmoji instances based on the type of the uninitialized value
-            if isinstance(uninitEmoji, int):
-                working.append(lib.emojis.BasedEmoji(id=uninitEmoji))
-            elif isinstance(uninitEmoji, str):
-                working.append(lib.emojis.BasedEmoji.fromStr(uninitEmoji))
-            elif isinstance(uninitEmoji, dict):
-                working.append(lib.emojis.BasedEmoji.fromDict(uninitEmoji))
-            # Unrecognised uninitialized value
-            else:
-                raise ValueError("Unrecognised UninitializedBasedEmoji value type. Expecting int, str or dict, given '" + varname + "'")
-        
-        setattr(cfg, varname, working)
-        
+    for varname in cfg.defaultEmojis.attrNames:
+        varvalue = getattr(cfg.defaultEmojis, varname)
+        if type(varvalue) == lib.emojis.UninitializedBasedEmoji:
+            emojiVars.append(varname)
+            continue
+        elif type(varvalue) == list:
+            onlyEmojis = True
+            for item in varvalue:
+                if type(item) != lib.emojis.UninitializedBasedEmoji:
+                    onlyEmojis = False
+                    break
+            if onlyEmojis:
+                emojiListVars.append(varname)
+                continue
+        raise ValueError("Invalid config variable in cfg.defaultEmojis: Emoji config variables must be either UninitializedBasedEmoji or List[UninitializedBasedEmoji]")
     
+    for varname in emojiVars:
+        setattr(cfg.defaultEmojis, varname, lib.emojis.BasedEmoji.fromUninitialized(getattr(cfg.defaultEmojis, varname)))
+    
+    for varname in emojiListVars:
+        working = []
+        for item in getattr(cfg.defaultEmojis, varname):
+            working.append(lib.emojis.BasedEmoji.fromUninitialized(item))
+            
+        setattr(cfg.defaultEmojis, varname, working)
+        
     # Ensure all emojis have been initialized
     for varName, varValue in vars(cfg).items():
         if isinstance(varValue, lib.emojis.UninitializedBasedEmoji):
             raise RuntimeError("Uninitialized emoji still remains in cfg after emoji initialization: '" + varName + "'")
 
-    botState.usersDB = loadUsersDB(cfg.userDBPath)
-    botState.guildsDB = loadGuildsDB(cfg.guildDBPath)
+    botState.usersDB = loadUsersDB(cfg.paths.usersDB)
+    botState.guildsDB = loadGuildsDB(cfg.paths.guildsDB)
 
     # Handle any guilds joined while the bot was offline
     for guild in botState.client.guilds:
@@ -294,18 +293,18 @@ async def on_ready():
                 embed.set_thumbnail(url=botState.client.user.avatar_url_as(size=64))
 
     botState.reactionMenusTTDB = TimedTaskHeap.TimedTaskHeap()
-    if not os.path.exists(cfg.reactionMenusDBPath):
+    if not os.path.exists(cfg.paths.reactionMenusDB):
         try:
-            f = open(cfg.reactionMenusDBPath, 'x')
+            f = open(cfg.paths.reactionMenusDB, 'x')
             f.write("{}")
             f.close()
         except IOError as e:
             botState.logger.log("main","on_ready","IOError creating reactionMenuDB save file: " + e.__class__.__name__, trace=traceback.format_exc())
 
-    botState.reactionMenusDB = await loadReactionMenusDB(cfg.reactionMenusDBPath)
+    botState.reactionMenusDB = await loadReactionMenusDB(cfg.paths.reactionMenusDB)
 
-    botState.dbSaveTT = TimedTask.TimedTask(expiryDelta=lib.timeUtil.timeDeltaFromDict(cfg.savePeriod), autoReschedule=True, expiryFunction=botState.client.saveAllDBs)
-    botState.updatesCheckTT = TimedTask.TimedTask(expiryDelta=lib.timeUtil.timeDeltaFromDict(cfg.BASED_updateCheckFrequency), autoReschedule=True, expiryFunction=checkForUpdates)
+    botState.dbSaveTT = TimedTask.TimedTask(expiryDelta=lib.timeUtil.timeDeltaFromDict(cfg.timeouts.dataSaveFrequency), autoReschedule=True, expiryFunction=botState.client.saveAllDBs)
+    botState.updatesCheckTT = TimedTask.TimedTask(expiryDelta=lib.timeUtil.timeDeltaFromDict(cfg.timeouts.BASED_updateCheckFrequency), autoReschedule=True, expiryFunction=checkForUpdates)
 
     print("BASED " + versionInfo.BASED_VERSION + " loaded.\nClient logged in as {0.user}".format(botState.client))
     await checkForUpdates()
@@ -451,12 +450,14 @@ async def on_raw_bulk_message_delete(payload : discord.RawBulkMessageDeleteEvent
             await botState.reactionMenusDB[msgID].delete()
 
 
-for varName in ["SDB_DC_TOKEN"]:
-    if varName not in os.environ:
-        raise KeyError("required environment variable " + varName + " not set.")
-
 def run():
-    # Launch the bot!! 🤘🚀
-    botState.client.run(os.environ["SDB_DC_TOKEN"])
+    if not (bool(cfg.botToken) ^ bool(cfg.botToken_envVarName)):
+        raise ValueError("You must give exactly one of either cfg.botToken or cfg.botToken_envVarName")
 
+    if cfg.botToken_envVarName and cfg.botToken_envVarName not in os.environ:
+        raise KeyError("Bot token environment variable " + cfg.botToken_envVarName + " not set (cfg.botToken_envVarName")
+
+    # Launch the bot!! 🤘🚀
+    botState.client.run(cfg.botToken if cfg.botToken else os.environ[cfg.botToken_envVarName])
     return botState.shutdown
+    

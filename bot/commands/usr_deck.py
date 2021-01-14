@@ -21,7 +21,7 @@ from ..cardRenderer import make_cards
 
 # use creds to create a client to interact with the Google Drive API
 scope = ['https://spreadsheets.google.com/feeds']
-creds = ServiceAccountCredentials.from_json_keyfile_name(cfg.googleAPICred, scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name(cfg.paths.googleAPICred, scope)
 gspread_client = gspread.authorize(creds)
 
 def collect_cards(sheetLink):
@@ -69,11 +69,11 @@ async def cmd_create(message : discord.Message, args : str, isDM : bool):
         return
 
     callingBGuild = botState.guildsDB.getGuild(message.guild.id)
-    loadingMsg = await message.channel.send("Reading spreadsheet... " + cfg.loadingEmoji.sendable)
+    loadingMsg = await message.channel.send("Reading spreadsheet... " + cfg.defaultEmojis.loading.sendable)
 
     try:
         gameData = collect_cards(args)
-        await loadingMsg.edit(content="Reading spreadsheet... " + cfg.defaultSubmitEmoji.sendable)
+        await loadingMsg.edit(content="Reading spreadsheet... " + cfg.defaultEmojis.submit.sendable)
     except gspread.SpreadsheetNotFound:
         await message.channel.send(":x: Unrecognised spreadsheet! Please make sure the file exists and is public.")
         return
@@ -123,10 +123,10 @@ async def cmd_create(message : discord.Message, args : str, isDM : bool):
             await message.channel.send("Deck creation failed.\nDecks must have at least 1 black card.")
             return
 
-        loadingMsg = await message.channel.send("Drawing cards... " + cfg.loadingEmoji.sendable)
-        deckMeta = await make_cards.render_all(cfg.decksFolderPath, gameData, cfg.cardFont, message.guild.id)
+        loadingMsg = await message.channel.send("Drawing cards... " + cfg.defaultEmojis.loading.sendable)
+        deckMeta = await make_cards.render_all(cfg.paths.decksFolder, gameData, cfg.paths.cardFont, message.guild.id)
         if cfg.cardStorageMethod == "discord":
-            deckMeta = await make_cards.store_cards_discord(cfg.decksFolderPath, deckMeta,
+            deckMeta = await make_cards.store_cards_discord(cfg.paths.decksFolder, deckMeta,
                                                             botState.client.get_guild(cfg.cardsDCChannel["guild_id"]).get_channel(cfg.cardsDCChannel["channel_id"]),
                                                             message)
         elif cfg.cardStorageMethod == "local":
@@ -134,10 +134,10 @@ async def cmd_create(message : discord.Message, args : str, isDM : bool):
         else:
             raise ValueError("Unsupported cfg.cardStorageMethod: " + str(cfg.cardStorageMethod))
 
-        await loadingMsg.edit(content="Drawing cards... " + cfg.defaultSubmitEmoji.sendable)
+        await loadingMsg.edit(content="Drawing cards... " + cfg.defaultEmojis.submit.sendable)
         
         deckMeta["spreadsheet_url"] = args
-        metaPath = cfg.decksFolderPath + os.sep + str(message.guild.id) + os.sep + str(hash(gameData["title"])) + ".json"
+        metaPath = cfg.paths.decksFolder + os.sep + str(message.guild.id) + os.sep + str(hash(gameData["title"])) + ".json"
         lib.jsonHandler.writeJSON(metaPath, deckMeta)
         now = datetime.utcnow()
         callingBGuild.decks[deckMeta["deck_name"].lower()] = {"meta_path": metaPath, "creator": message.author.id, "creation_date" : str(now.day).zfill(2) + "-" + str(now.month).zfill(2) + "-" + str(now.year), "plays": 0,
@@ -161,26 +161,26 @@ async def cmd_start_game(message : discord.Message, args : str, isDM : bool):
     options = {}
     optNum = 0
     for optNum in range(len(cfg.roundsPickerOptions)):
-        emoji = cfg.defaultMenuEmojis[optNum]
+        emoji = cfg.defaultEmojis.menuOptions[optNum]
         roundsNum = cfg.roundsPickerOptions[optNum]
         options[emoji] = ReactionMenu.DummyReactionMenuOption("Best of " + str(roundsNum), emoji)
-    options[cfg.spiralEmoji] = ReactionMenu.DummyReactionMenuOption("Free play", cfg.spiralEmoji)
-    options[cfg.defaultCancelEmoji] = ReactionMenu.DummyReactionMenuOption("Cancel", cfg.defaultCancelEmoji)
+    options[cfg.defaultEmojis.spiral] = ReactionMenu.DummyReactionMenuOption("Free play", cfg.defaultEmojis.spiral)
+    options[cfg.defaultEmojis.cancel] = ReactionMenu.DummyReactionMenuOption("Cancel", cfg.defaultEmojis.cancel)
 
     roundsPickerMsg = await message.channel.send("​")
-    roundsResult = await ReactionMenu.SingleUserReactionMenu(roundsPickerMsg, message.author, cfg.roundsPickerTimeout,
+    roundsResult = await ReactionMenu.InlineReactionMenu(roundsPickerMsg, message.author, cfg.timeouts.numRoundsPickerSeconds,
                                                     options=options, returnTriggers=list(options.keys()), titleTxt="Game Length", desc="How many rounds would you like to play?",
-                                                    footerTxt=args.title() + " | This menu will expire in " + str(cfg.roundsPickerTimeout) + "s").doMenu()
+                                                    footerTxt=args.title() + " | This menu will expire in " + str(cfg.timeouts.numRoundsPickerSeconds) + "s").doMenu()
     
     rounds = cfg.defaultSDBRounds
     if len(roundsResult) == 1:
-        if roundsResult[0] == cfg.spiralEmoji:
+        if roundsResult[0] == cfg.defaultEmojis.spiral:
             rounds = -1
-        elif roundsResult[0] == cfg.defaultCancelEmoji:
+        elif roundsResult[0] == cfg.defaultEmojis.cancel:
             await message.channel.send("Game cancelled.")
             return
         else:
-            rounds = cfg.roundsPickerOptions[cfg.defaultMenuEmojis.index(roundsResult[0])]
+            rounds = cfg.roundsPickerOptions[cfg.defaultEmojis.menuOptions.index(roundsResult[0])]
 
     expansionPickerMsg = roundsPickerMsg
     numExpansions = len(callingBGuild.decks[args]["expansion_names"])
@@ -188,7 +188,7 @@ async def cmd_start_game(message : discord.Message, args : str, isDM : bool):
     optionPages = {}
     embedKeys = []
     numPages = numExpansions // 5 + (0 if numExpansions % 5 == 0 else 1)
-    menuTimeout = lib.timeUtil.timeDeltaFromDict(cfg.expansionPickerTimeout)
+    menuTimeout = lib.timeUtil.timeDeltaFromDict(cfg.timeouts.expansionsPicker)
     menuTT = TimedTask.TimedTask(expiryDelta=menuTimeout, expiryFunction=sdbGame.startGameFromExpansionMenu, expiryFunctionArgs={"menuID": expansionPickerMsg.id, "deckName": args, "rounds": rounds})
     callingBGuild.runningGames[message.channel] = None
 
@@ -202,15 +202,15 @@ async def cmd_start_game(message : discord.Message, args : str, isDM : bool):
     for expansionNum in range(numExpansions):
         pageNum = expansionNum // 5
         pageEmbed = embedKeys[pageNum]
-        optionEmoji = cfg.defaultMenuEmojis[expansionNum % 5]
+        optionEmoji = cfg.defaultEmojis.menuOptions[expansionNum % 5]
         expansionName = callingBGuild.decks[args]["expansion_names"][expansionNum]
         pageEmbed.add_field(name=optionEmoji.sendable + " : " + expansionName, value="​", inline=False)
         optionPages[pageEmbed][optionEmoji] = ReactionMenu.NonSaveableSelecterMenuOption(expansionName, optionEmoji, expansionPickerMsg.id)
 
     for page in embedKeys:
-        page.add_field(name=cfg.defaultAcceptEmoji.sendable + " : Submit", value="​", inline=False)
-        page.add_field(name=cfg.defaultCancelEmoji.sendable + " : Cancel", value="​", inline=False)
-        page.add_field(name=cfg.spiralEmoji.sendable + " : Toggle all", value="​", inline=False)
+        page.add_field(name=cfg.defaultEmojis.accept.sendable + " : Submit", value="​", inline=False)
+        page.add_field(name=cfg.defaultEmojis.cancel.sendable + " : Cancel", value="​", inline=False)
+        page.add_field(name=cfg.defaultEmojis.spiral.sendable + " : Toggle all", value="​", inline=False)
 
     expansionSelectorMenu = PagedReactionMenu.MultiPageOptionPicker(expansionPickerMsg,
         pages=optionPages, timeout=menuTT, owningBasedUser=botState.usersDB.getOrAddID(message.author.id), targetMember=message.author)
