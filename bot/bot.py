@@ -325,7 +325,7 @@ async def on_ready():
         await botState.updatesCheckTT.doExpiryCheck()
 
         if botState.client.killer.kill_now:
-            botState.shutdown = True
+            botState.shutdown = botState.ShutDownState.shutdown
             print("shutdown signal received, shutting down...")
             await botState.client.shutdown()
 
@@ -459,4 +459,4 @@ def run():
     # Launch the bot!! 🤘🚀
     botState.client.run(os.environ["SDB_DC_TOKEN"])
 
-    sys.exit(int(botState.shutdown))
+    return botState.shutdown

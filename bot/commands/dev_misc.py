@@ -28,7 +28,7 @@ async def dev_cmd_sleep(message : discord.Message, args : str, isDM : bool):
     :param str args: ignored
     :param bool isDM: Whether or not the command is being called from a DM channel
     """
-    botState.shutdown = True
+    botState.shutdown = botState.ShutDownState.shutdown
     await message.channel.send("shutting down.")
     await botState.client.shutdown()
 
@@ -188,7 +188,7 @@ async def dev_cmd_bot_update(message : discord.Message, args : str, isDM : bool)
     :param str args: ignored
     :param bool isDM: Whether or not the command is being called from a DM channel
     """
-    botState.shutdown = False
+    botState.shutdown = botState.ShutDownState.update
     await message.channel.send("updating and restarting...")
     await botState.client.shutdown()
 
