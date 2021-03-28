@@ -212,7 +212,7 @@ async def cmd_start_game(message : discord.Message, args : str, isDM : bool):
             await asyncio.sleep(2)
             await expansionSelectorMenu.updateMessage()
 
-botCommands.register("play", cmd_start_game, 0, allowDM=False, signatureStr="**play <deck name>** *[rounds]*", shortHelp="Start a game of Super Deck Breaker! Give the name of the deck you want to play with.", helpSection="decks")
+botCommands.register("play", cmd_start_game, 0, allowDM=False, signatureStr="**play <deck name>**", shortHelp="Start a game of Super Deck Breaker! Give the name of the deck you want to play with.", helpSection="decks")
 
 
 async def cmd_decks(message : discord.Message, args : str, isDM : bool):
