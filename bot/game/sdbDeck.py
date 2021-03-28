@@ -202,12 +202,23 @@ async def updateDeck(callingMsg: Message, bGuild, deckName: str):
             errs += "\nEmpty expansion packs detected - skipping these expansions: " + ", ".join(expansion for expansion in emptyExpansions)
             for expansion in emptyExpansions:
                 del newCardData["expansions"][expansion]
-        
+
+        whiteCounts = {}
+        blackCounts = {}
+        for expansion in newCardData["expansions"]:
+            whiteCounts[expansion] = len(newCardData["expansions"][expansion]["white"])
+            blackCounts[expansion] = len(newCardData["expansions"][expansion]["black"])
+            indicesToRemove = []
+            for cardNum, cardText in enumerate(newCardData["expansions"][expansion]["black"]):
+                if "_" not in cardText:
+                    indicesToRemove.append(cardNum)
+            if indicesToRemove:
+                errs += "\nIgnoring " + str(len(indicesToRemove)) + " black cards from " + expansion + " expansion with no white card slots (`_`)."
+                for i in indicesToRemove:
+                    newCardData["expansions"][expansion]["black"].pop(i)
+
         if errs != "":
             await callingMsg.channel.send(errs)
-
-        whiteCounts = {expansion: len(newCardData["expansions"][expansion]["white"]) for expansion in newCardData["expansions"]}
-        blackCounts = {expansion: len(newCardData["expansions"][expansion]["black"]) for expansion in newCardData["expansions"]}
 
         totalWhite = sum(whiteCounts.values())
         totalBlack = sum(blackCounts.values())
