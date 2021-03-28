@@ -8,4 +8,4 @@ from ..cardRenderer.lib import clear_deck_path
 from ..cfg import cfg
 
 
-botCommands.addHelpSection(2, "decks")
+# botCommands.addHelpSection(2, "decks")
