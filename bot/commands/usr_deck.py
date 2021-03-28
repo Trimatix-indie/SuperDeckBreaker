@@ -98,12 +98,23 @@ async def cmd_create(message : discord.Message, args : str, isDM : bool):
             errs += "\nEmpty expansion packs detected - skipping these expansions: " + ", ".join(expansion for expansion in emptyExpansions)
             for expansion in emptyExpansions:
                 del gameData["expansions"][expansion]
+
+        whiteCounts = {}
+        blackCounts = {}
+        for expansion in gameData["expansions"]:
+            whiteCounts[expansion] = len(gameData["expansions"][expansion]["white"])
+            blackCounts[expansion] = len(gameData["expansions"][expansion]["black"])
+            indicesToRemove = []
+            for cardNum, cardText in enumerate(gameData["expansions"][expansion]["black"]):
+                if "_" not in cardText:
+                    indicesToRemove.append(cardNum)
+            if indicesToRemove:
+                errs += "\nIgnoring " + str(len(indicesToRemove)) + " black cards from " + expansion + " expansion with no white card slots (`_`)."
+                for i in indicesToRemove:
+                    gameData["expansions"][expansion]["black"].pop(i)
         
         if errs != "":
             await message.channel.send(errs)
-
-        whiteCounts = {expansion: len(gameData["expansions"][expansion]["white"]) for expansion in gameData["expansions"]}
-        blackCounts = {expansion: len(gameData["expansions"][expansion]["black"]) for expansion in gameData["expansions"]}
 
         totalWhite = sum(whiteCounts.values())
         totalBlack = sum(blackCounts.values())

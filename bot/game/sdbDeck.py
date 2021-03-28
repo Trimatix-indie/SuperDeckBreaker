@@ -28,8 +28,8 @@ def collect_cards(sheetLink):
     expansions = {}
 
     for expansion in worksheet.worksheets():
-        expansions[expansion.title] = {"white": [card for card in expansion.col_values(1) if card],
-                                        "black": [card for card in expansion.col_values(2) if card]}
+        expansions[expansion.title] = {"white": list(set(card for card in expansion.col_values(1) if card)),
+                                        "black": list(set(card for card in expansion.col_values(2) if card))}
 
     return {"expansions": expansions, "title": worksheet.title}
 
