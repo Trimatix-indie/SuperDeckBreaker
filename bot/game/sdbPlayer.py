@@ -122,6 +122,7 @@ class SDBPlayer:
             self.alreadySubmittedError = None
         if not noCardNumErr and self.hasCardNumErr:
             await self.playMenu.remCardNumErr()
+            self.hasCardNumErr = False
 
 
     def __hash__(self) -> int:
