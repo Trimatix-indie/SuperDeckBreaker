@@ -15,6 +15,7 @@ import random
 import shutil
 import os
 from datetime import datetime
+import traceback
 # from . import sdbGameConfig
 
 from bot.reactionMenus import SDBSubmissionsReviewMenu
@@ -336,7 +337,10 @@ class SDBGame:
     async def submissionReceived(self, player: sdbPlayer.SDBPlayer):
         if self.shutdownOverride:
             return
-        await self.submissionsProgress.submissionReceived(player)
+        try:
+            await self.submissionsProgress.submissionReceived(player)
+        except AttributeError as e:
+            botState.logger.log("SDBGame", "sumissionReceived", "submissionsProgress is None. submissionReceived coro probably received after the last submission's coro.", trace=traceback.format_exception(type(e), e, e.__traceback__), eventType="NONE_PROG")
         if self.allPlayersSubmitted():
             await self.endWaitForSubmissions()
 
