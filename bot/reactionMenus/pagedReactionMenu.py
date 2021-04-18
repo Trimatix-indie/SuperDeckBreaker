@@ -297,7 +297,7 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         # else:
         #     await self.reactionRemoved(emoji, user)
 
-        return True
+        return self.hasEmojiRegistered(emoji)
 
 
     async def doMenu(self):
