@@ -463,6 +463,10 @@ class SDBGame:
 
 
     async def endGame(self):
+        if cfg.submissionsPresentationMethod == "merged" and cfg.cardStorageMethod == "local":
+            submissionsDir = cfg.paths.decksFolder + os.sep + "temp" + os.sep + str(self.channel.id)
+            if os.path.isdir(submissionsDir):
+                shutil.rmtree(submissionsDir)
         if self.channel in self.bGuild.runningGames:
             del self.bGuild.runningGames[self.channel]
         winningplayers = [self.players[0]]
