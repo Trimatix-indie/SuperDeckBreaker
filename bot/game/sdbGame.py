@@ -1,6 +1,6 @@
 from discord import Embed, File, Message, Colour, Member, TextChannel
 from .. import botState, lib
-from typing import Dict, Union, List
+from typing import Dict, NoReturn, Union, List
 from ..reactionMenus import expiryFunctions
 from ..baseClasses.enum import Enum
 from ..cfg import cfg
@@ -355,7 +355,9 @@ class SDBGame:
 
     async def pickWinningCards(self):
         if self.shutdownOverride:
-            return
+            NoReturn
+        await self.currentBlackCard.message.delete()
+        self.currentBlackCard.message = await self.channel.send(embed=lib.discordUtil.makeEmbed(img=self.currentBlackCard.currentCard.url, desc=self.currentBlackCard.currentCard.url if cfg.debugCards else ""))
         submissionsMenuMsg = await self.channel.send("The submissions are in! But who wins?")
         if cfg.submissionsPresentationMethod == "sequential" or self.currentBlackCard.currentCard.requiredWhiteCards == 1:
             menu = InlineSequentialSubmissionsReviewMenu(submissionsMenuMsg, self,
