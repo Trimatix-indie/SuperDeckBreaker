@@ -372,7 +372,17 @@ class SDBGame:
                 while winningPlayer.isChooser:
                     winningPlayer = random.choice(self.players)
             else:
-                winningPlayer = winningOption[0].player
+                if isinstance(winningOption[0], SDBSubmissionsReviewMenu.SDBWinningSubmissionOption):
+                    winningPlayer = winningOption[0].player
+                else:
+                    # In very rare circumstances, something other than an SDBWinningSubmissionOption can trigger menu return.
+                    # If an error occurs (or i think if the card chooser leaves the game during card selection?) Then the menu will softlock.
+                    # To get around this, any reaction to the menu *at all* will be accepted during reactionClosesMenu/reactionValid.
+                    # See SDBSubmissionsReviewMenu.InlineSDBSubmissionsReviewMenu.reactionClosesMenu
+                    await self.channel.send("An unexpected error occurred when selecting the winner, the error has been logged.\nPicking a winner at random...")
+                    winningPlayer = random.choice(self.players)
+                    while winningPlayer.isChooser:
+                        winningPlayer = random.choice(self.players)
 
         winnerEmbed = lib.discordUtil.makeEmbed(titleTxt="Winning Submission", desc=winningPlayer.dcUser.mention)
         await submissionsMenuMsg.delete()
