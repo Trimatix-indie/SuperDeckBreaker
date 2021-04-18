@@ -356,6 +356,9 @@ class SDBGame:
     async def pickWinningCards(self):
         if self.shutdownOverride:
             return
+        if len(await self.channel.history(limit=3).flatten()) == 3:
+            await self.currentBlackCard.message.delete()
+            self.currentBlackCard.message = await self.channel.send(embed=lib.discordUtil.makeEmbed(img=self.currentBlackCard.currentCard.url, desc=self.currentBlackCard.currentCard.url if cfg.debugCards else ""))
         submissionsMenuMsg = await self.channel.send("The submissions are in! But who wins?")
         if cfg.submissionsPresentationMethod == "sequential" or self.currentBlackCard.currentCard.requiredWhiteCards == 1:
             menu = InlineSequentialSubmissionsReviewMenu(submissionsMenuMsg, self,
