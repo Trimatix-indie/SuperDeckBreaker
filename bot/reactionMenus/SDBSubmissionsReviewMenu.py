@@ -77,7 +77,8 @@ class InlineMergedSubmissionsReviewMenu(InlineSDBSubmissionsReviewMenu):
             currentEmbed = Embed()
             currentEmbed.title = "Submissions"# player.dcUser.display_name
             currentEmbed.set_image(url=submissions[player])
-            currentEmbed.description=submissions[player]
+            if cfg.debugCards:
+                currentEmbed.description=submissions[player]
             currentEmbed.set_footer(text="Player " + str(playerNum + 1) + " of " + str(numPlayers))
             
             newOption = SDBWinningSubmissionOption(player)
