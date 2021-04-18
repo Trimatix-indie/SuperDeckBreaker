@@ -6,6 +6,7 @@ import aiohttp
 import json
 from datetime import datetime
 import asyncio
+import traceback
 
 from . import commandsDB as botCommands
 from .. import botState, lib
@@ -173,55 +174,63 @@ async def cmd_start_game(message : discord.Message, args : str, isDM : bool):
     if args in callingBGuild.activeDecks:
         gameDeck = callingBGuild.activeDecks[args]
     else:
-        gameDeck = sdbDeck.SDBDeck(callingBGuild.decks[args]["meta_path"])
-    
-    reservation = sdbGame.GameChannelReservation(gameDeck)
-    callingBGuild.runningGames[message.channel] = reservation
-
-    options = {}
-    optNum = 0
-    for optNum in range(len(cfg.roundsPickerOptions)):
-        emoji = cfg.defaultEmojis.menuOptions[optNum]
-        roundsNum = cfg.roundsPickerOptions[optNum]
-        options[emoji] = reactionMenu.DummyReactionMenuOption("Best of " + str(roundsNum), emoji)
-    options[cfg.defaultEmojis.spiral] = reactionMenu.DummyReactionMenuOption("Free play", cfg.defaultEmojis.spiral)
-    options[cfg.defaultEmojis.cancel] = reactionMenu.DummyReactionMenuOption("Cancel", cfg.defaultEmojis.cancel)
-
-    roundsPickerMsg = await message.channel.send("​")
-    roundsResult = await reactionMenu.InlineReactionMenu(roundsPickerMsg, message.author, cfg.timeouts.numRoundsPickerSeconds,
-                                                    options=options, returnTriggers=list(options.keys()), titleTxt="Game Length", desc="How many rounds would you like to play?",
-                                                    footerTxt=args.title() + " | This menu will expire in " + str(cfg.timeouts.numRoundsPickerSeconds) + "s").doMenu()
-
-    if reservation.shutdownOverride:
-        await message.channel.send(reservation.shutdownOverrideReason if reservation.shutdownOverrideReason else "The game was forcibly ended, likely due to an error.")
-    else:
-        rounds = cfg.defaultSDBRounds
-        if len(roundsResult) == 1:
-            if roundsResult[0] == cfg.defaultEmojis.spiral:
-                rounds = -1
-            elif roundsResult[0] == cfg.defaultEmojis.cancel:
-                await message.channel.send("Game cancelled.")
-                del callingBGuild.runningGames[message.channel]
-                return
-            else:
-                rounds = cfg.roundsPickerOptions[cfg.defaultEmojis.menuOptions.index(roundsResult[0])]
-
-        expansionPickerMsg = roundsPickerMsg
-        expansionsData = callingBGuild.decks[args]["expansions"]
-        
-        menuTimeout = lib.timeUtil.timeDeltaFromDict(cfg.timeouts.expansionsPicker)
-        menuTT = timedTask.TimedTask(expiryDelta=menuTimeout, expiryFunction=sdbGame.startGameFromExpansionMenu, expiryFunctionArgs={"menuID": expansionPickerMsg.id, "deckName": args, "rounds": rounds})
-
-        expansionSelectorMenu = SDBExpansionsPicker.SDBExpansionsPicker(expansionPickerMsg, expansionsData,
-                                                                        timeout=menuTT, owningBasedUser=botState.usersDB.getOrAddID(message.author.id), targetMember=message.author)
-
-        botState.reactionMenusDB[expansionPickerMsg.id] = expansionSelectorMenu
-        botState.taskScheduler.scheduleTask(menuTT)
         try:
-            await expansionSelectorMenu.updateMessage()
-        except discord.NotFound:
-            await asyncio.sleep(2)
-            await expansionSelectorMenu.updateMessage()
+            gameDeck = sdbDeck.SDBDeck(callingBGuild.decks[args]["meta_path"])
+        except RuntimeError as e:
+            gameDeck = None
+            await message.reply("An unexpected error occurred when building the deck, the error has been logged.\nPlease try playing with a different deck!")
+            botState.logger.log("usr_deck", "cmd_start_game",
+                                "Exception occured when trying to build a deck before starting a game",
+                                eventType=type(e).__name__, trace=traceback.format_exception(type(e), e, e.__traceback__))
+    
+    if gameDeck is not None:
+        reservation = sdbGame.GameChannelReservation(gameDeck)
+        callingBGuild.runningGames[message.channel] = reservation
+
+        options = {}
+        optNum = 0
+        for optNum in range(len(cfg.roundsPickerOptions)):
+            emoji = cfg.defaultEmojis.menuOptions[optNum]
+            roundsNum = cfg.roundsPickerOptions[optNum]
+            options[emoji] = reactionMenu.DummyReactionMenuOption("Best of " + str(roundsNum), emoji)
+        options[cfg.defaultEmojis.spiral] = reactionMenu.DummyReactionMenuOption("Free play", cfg.defaultEmojis.spiral)
+        options[cfg.defaultEmojis.cancel] = reactionMenu.DummyReactionMenuOption("Cancel", cfg.defaultEmojis.cancel)
+
+        roundsPickerMsg = await message.channel.send("​")
+        roundsResult = await reactionMenu.InlineReactionMenu(roundsPickerMsg, message.author, cfg.timeouts.numRoundsPickerSeconds,
+                                                        options=options, returnTriggers=list(options.keys()), titleTxt="Game Length", desc="How many rounds would you like to play?",
+                                                        footerTxt=args.title() + " | This menu will expire in " + str(cfg.timeouts.numRoundsPickerSeconds) + "s").doMenu()
+
+        if reservation.shutdownOverride:
+            await message.channel.send(reservation.shutdownOverrideReason if reservation.shutdownOverrideReason else "The game was forcibly ended, likely due to an error.")
+        else:
+            rounds = cfg.defaultSDBRounds
+            if len(roundsResult) == 1:
+                if roundsResult[0] == cfg.defaultEmojis.spiral:
+                    rounds = -1
+                elif roundsResult[0] == cfg.defaultEmojis.cancel:
+                    await message.channel.send("Game cancelled.")
+                    del callingBGuild.runningGames[message.channel]
+                    return
+                else:
+                    rounds = cfg.roundsPickerOptions[cfg.defaultEmojis.menuOptions.index(roundsResult[0])]
+
+            expansionPickerMsg = roundsPickerMsg
+            expansionsData = callingBGuild.decks[args]["expansions"]
+            
+            menuTimeout = lib.timeUtil.timeDeltaFromDict(cfg.timeouts.expansionsPicker)
+            menuTT = timedTask.TimedTask(expiryDelta=menuTimeout, expiryFunction=sdbGame.startGameFromExpansionMenu, expiryFunctionArgs={"menuID": expansionPickerMsg.id, "deckName": args, "rounds": rounds})
+
+            expansionSelectorMenu = SDBExpansionsPicker.SDBExpansionsPicker(expansionPickerMsg, expansionsData,
+                                                                            timeout=menuTT, owningBasedUser=botState.usersDB.getOrAddID(message.author.id), targetMember=message.author)
+
+            botState.reactionMenusDB[expansionPickerMsg.id] = expansionSelectorMenu
+            botState.taskScheduler.scheduleTask(menuTT)
+            try:
+                await expansionSelectorMenu.updateMessage()
+            except discord.NotFound:
+                await asyncio.sleep(2)
+                await expansionSelectorMenu.updateMessage()
 
 botCommands.register("play", cmd_start_game, 0, allowDM=False, signatureStr="**play <deck name>**", shortHelp="Start a game of Super Deck Breaker! Give the name of the deck you want to play with.", helpSection="decks")
 

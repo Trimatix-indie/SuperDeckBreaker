@@ -26,3 +26,9 @@ class NoneDCGuildObj(Exception):
     """Raised when constructing a guild object, but the corresponding dcGuild was either not given or invalid.
     """
     pass
+
+
+class PageOutOfRange(Exception):
+    """Raised when attempting to change page in a PagedReactionMenu to a page number which is out of range
+    """
+    pass

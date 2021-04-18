@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, Union
 
 from discord import Guild, TextChannel
+import traceback
 
 from .. import botState, lib
 from ..baseClasses import serializable
@@ -55,15 +56,23 @@ class BasedGuild(serializable.Serializable):
         if deckName in self.activeDecks:
             gameDeck = self.activeDecks[deckName]
         else:
-            gameDeck = sdbDeck.SDBDeck(self.decks[deckName]["meta_path"])
+            try:
+                gameDeck = sdbDeck.SDBDeck(self.decks[deckName]["meta_path"])
+            except RuntimeError as e:
+                gameDeck = None
+                await channel.send("An unexpected error occurred when building the deck, the error has been logged.\nPlease try playing with a different deck!")
+                botState.logger.log("BasedGuild", "startGameSignups",
+                                    "Exception occured when trying to build a deck before starting a game",
+                                    eventType=type(e).__name__, trace=traceback.format_exception(type(e), e, e.__traceback__))
 
-        self.runningGames[channel] = sdbGame.SDBGame(owner, gameDeck, expansionNames, channel, rounds, self)
+        if gameDeck is not None:
+            self.runningGames[channel] = sdbGame.SDBGame(owner, gameDeck, expansionNames, channel, rounds, self)
 
-        signupMsg = await channel.send("​")
-        signupMenu = SDBSignupMenu.SDBSignupMenu(signupMsg, self.runningGames[channel], lib.timeUtil.timeDeltaFromDict(cfg.timeouts.gameJoinMenu))
-        botState.reactionMenusDB[signupMsg.id] = signupMenu
-        await signupMenu.updateMessage()
-        self.decks[deckName]["plays"] += 1
+            signupMsg = await channel.send("​")
+            signupMenu = SDBSignupMenu.SDBSignupMenu(signupMsg, self.runningGames[channel], lib.timeUtil.timeDeltaFromDict(cfg.timeouts.gameJoinMenu))
+            botState.reactionMenusDB[signupMsg.id] = signupMenu
+            await signupMenu.updateMessage()
+            self.decks[deckName]["plays"] += 1
 
 
     def toDict(self, **kwargs) -> dict:

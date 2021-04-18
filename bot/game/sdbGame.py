@@ -172,6 +172,7 @@ class SDBGame:
     async def dealPlayerCards(self, player):
         if self.shutdownOverride:
             return
+        noneCardDealt = False
         for cardSlot in player.hand:
             if self.shutdownOverride:
                 return
@@ -179,7 +180,12 @@ class SDBGame:
                 newCard = self.deck.randomWhite(self.expansionNames)
                 # while player.hasCard(newCard):
                 #     newCard = self.deck.randomWhite(self.expansionNames)
-                await cardSlot.setCard(newCard)
+                if newCard is None:
+                    noneCardDealt = True
+                else:
+                    await cardSlot.setCard(newCard)
+        if noneCardDealt:
+            await self.channel.send(player.dcUser.mention + " An unexpected error occurred when dealing your cards, the error has been logged.")
 
 
     async def dealAllPlayerCards(self):
@@ -365,14 +371,31 @@ class SDBGame:
             winningPlayer = random.choice(self.players)
         else:
             if len(winningOption) > 1:
-                raise RuntimeError("given selected options array of length " + str(len(winningOption)) + " but should be length 1")
+                botState.logger.log("SDBGame", "pickWinningCards",
+                                    "given selected options array of length " + str(len(winningOption)) + " but should be length 1\n" + \
+                                        "Menu: " + type(menu).__name__ + "winning options: " + ", ".join(o.name for o in winningOption),
+                                    category="reactionMenus", eventType="RETURN_TRIGGER_ERR")
+                await self.channel.send("An unexpected error occurred when selecting the winner, the error has been logged.\nPicking a winner at random...")
+                winningPlayer = random.choice(self.players)
+                while winningPlayer.isChooser:
+                    winningPlayer = random.choice(self.players)
             elif len(winningOption) == 0:
                 await self.channel.send("The card chooser ran out of time! Picking a winner at random...")
                 winningPlayer = random.choice(self.players)
                 while winningPlayer.isChooser:
                     winningPlayer = random.choice(self.players)
             else:
-                winningPlayer = winningOption[0].player
+                if isinstance(winningOption[0], SDBSubmissionsReviewMenu.SDBWinningSubmissionOption):
+                    winningPlayer = winningOption[0].player
+                else:
+                    # In very rare circumstances, something other than an SDBWinningSubmissionOption can trigger menu return.
+                    # If an error occurs (or i think if the card chooser leaves the game during card selection?) Then the menu will softlock.
+                    # To get around this, any reaction to the menu *at all* will be accepted during reactionClosesMenu/reactionValid.
+                    # See SDBSubmissionsReviewMenu.InlineSDBSubmissionsReviewMenu.reactionClosesMenu
+                    await self.channel.send("An unexpected error occurred when selecting the winner, the error has been logged.\nPicking a winner at random...")
+                    winningPlayer = random.choice(self.players)
+                    while winningPlayer.isChooser:
+                        winningPlayer = random.choice(self.players)
 
         winnerEmbed = lib.discordUtil.makeEmbed(titleTxt="Winning Submission", desc=winningPlayer.dcUser.mention)
         await submissionsMenuMsg.delete()
@@ -463,6 +486,10 @@ class SDBGame:
 
 
     async def endGame(self):
+        if cfg.submissionsPresentationMethod == "merged" and cfg.cardStorageMethod == "local":
+            submissionsDir = cfg.paths.decksFolder + os.sep + "temp" + os.sep + str(self.channel.id)
+            if os.path.isdir(submissionsDir):
+                shutil.rmtree(submissionsDir)
         if self.channel in self.bGuild.runningGames:
             del self.bGuild.runningGames[self.channel]
         winningplayers = [self.players[0]]

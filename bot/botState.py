@@ -1,3 +1,5 @@
+from .logging import Logger
+
 class ShutDownState:
     restart = 0
     shutdown = 1
@@ -16,4 +18,4 @@ dbSaveTT = None
 updatesCheckTT = None
 
 taskScheduler = None
-logger = None
+logger: Logger = None

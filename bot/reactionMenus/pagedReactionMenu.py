@@ -1,4 +1,5 @@
 from datetime import datetime
+import traceback
 from ..users import basedUser
 from .import reactionMenu, expiryFunctions
 from discord import Message, Member, Role, Embed, Colour
@@ -99,10 +100,10 @@ class PagedReactionMenu(reactionMenu.ReactionMenu):
     async def nextPage(self):
         """Set the menu to display the next page.
 
-        :raise RuntimeError: When the current page is the last page
+        :raise lib.exceptions.PageOutOfRange: When the current page is the last page
         """
         if self.currentPageNum == len(self.pages) - 1:
-            raise RuntimeError("Attempted to nextPage while on the last page")
+            raise lib.exceptions.PageOutOfRange("Attempted to nextPage while on the last page")
         self.currentPageNum += 1
         self.updateCurrentPage()
         await self.updateMessage(noRefreshOptions=True)
@@ -116,10 +117,10 @@ class PagedReactionMenu(reactionMenu.ReactionMenu):
     async def previousPage(self):
         """Set the menu to display the previous page.
 
-        :raise RuntimeError: When the current page is the first page
+        :raise lib.exceptions.PageOutOfRange: When the current page is the first page
         """
         if self.currentPageNum == 0:
-            raise RuntimeError("Attempted to previousPage while on the first page")
+            raise lib.exceptions.PageOutOfRange("Attempted to previousPage while on the first page")
         self.currentPageNum -= 1
         self.updateCurrentPage()
         await self.updateMessage(noRefreshOptions=True)
@@ -134,10 +135,10 @@ class PagedReactionMenu(reactionMenu.ReactionMenu):
         """Set the menu to display the given page number.
 
         :param int pageNum: the zero-based index of the page to display
-        :raise IndexError: If the given page number is out of range
+        :raise lib.exceptions.PageOutOfRange: If the given page number is out of range
         """
         if pageNum < 0 or pageNum > len(self.pages) - 1:
-            raise IndexError("Page number out of range: " + str(pageNum))
+            raise lib.exceptions.PageOutOfRange("Page number out of range: " + str(pageNum))
         if pageNum != self.currentPageNum:
             self.currentPageNum = pageNum
             self.updateCurrentPage()
@@ -297,7 +298,7 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         # else:
         #     await self.reactionRemoved(emoji, user)
 
-        return True
+        return self.hasEmojiRegistered(emoji)
 
 
     async def doMenu(self):
@@ -322,7 +323,12 @@ class InlinePagedReactionMenu(PagedReactionMenu):
                     continue
 
                 if reactPL.event_type == "REACTION_ADD":
-                    await self.reactionAdded(emoji, user)
+                    try:
+                        await self.reactionAdded(emoji, user)
+                    # Ignore attempts to change page which would break the menu
+                    except lib.exceptions.PageOutOfRange:
+                        botState.logger.log(type(self).__name__, "doMenu", emoji.sendable + " reaction requested an unknown page number",
+                                            category="reactionMenus", eventType="PAGE_RANGE", trace=traceback.format_exc())
                 else:
                     await self.reactionRemoved(emoji, user)
 
