@@ -2,6 +2,7 @@ from .sdbDeck import SDBCard, WhiteCard
 from .. import lib, botState
 from ..reactionMenus import SDBDMConfigMenu
 from ..cfg import cfg
+from discord import NotFound, HTTPException
 
 
 class SDBCardSlot:
@@ -93,7 +94,10 @@ class SDBPlayer:
     async def closeConfigMenu(self):
         if not self.hasConfigMenu():
             raise RuntimeError("Attempted to closeConfigMenu when player has no config menu: " + self.dcUser.name + "#" + str(self.dcUser.id) + " in game " + self.game.guild.name + "->" + self.game.channel.name)
-        await self.configMenu.delete()
+        try:
+            await self.configMenu.delete()
+        except (NotFound, HTTPException):
+            pass
     
 
     async def makeConfigMenu(self, owningMsg=None):

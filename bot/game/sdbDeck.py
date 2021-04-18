@@ -6,6 +6,7 @@ from typing import List, Dict
 from discord import Message
 from datetime import datetime
 import os
+import traceback
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -60,15 +61,21 @@ class WhiteCard(SDBCard):
 
     def claim(self, player):
         if self.isOwned():
-            raise RuntimeError("Attempted to claim a card that is already owned: " + self.text)
-        self.owner = player
-        self.expansion.ownedWhiteCards += 1
+            botState.logger.log("WhiteCard", "claim",
+                                "Player " + self.player.dcUser.name + "#" + str(self.player.dcUser.id) + " Attempted to claim a card that is already owned: " + self.text,
+                                eventType="ALREADY_OWNED", trace=traceback.format_exc())
+        else:
+            self.owner = player
+            self.expansion.ownedWhiteCards += 1
 
     def revoke(self):
         if not self.isOwned():
-            raise RuntimeError("Attempted to revoke a card that is not owned: " + self.text)
-        self.owner = None
-        self.expansion.ownedWhiteCards -= 1
+            botState.logger.log("WhiteCard", "revoke",
+                                "Player " + self.player.dcUser.name + "#" + str(self.player.dcUser.id) + " Attempted to revoke a card that is not owned: " + self.text,
+                                eventType="NOT_OWNED", trace=traceback.format_exc())
+        else:
+            self.owner = None
+            self.expansion.ownedWhiteCards -= 1
 
 
 class SDBExpansion:
@@ -135,7 +142,10 @@ class SDBDeck:
                 noFreeCards = False
                 break
         if noFreeCards:
-            raise ValueError("All white cards are already owned in the given expansions: " + ", ".join(expansions))
+            botState.logger.log("SDBDeck", "randomWhite",
+                                "All white cards are already owned in the given expansions: " + ", ".join(expansions),
+                                eventType="ALL_OWNED", trace=traceback.traceback.format_exc())
+            return None
 
         expansion = random.choice(expansions)
         while len(self.cards[expansion].white) == 0 or self.cards[expansion].allOwned():
