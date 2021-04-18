@@ -89,7 +89,7 @@ class SDBGame:
         self.playersLeftDuringSetup = []
         self.rounds = rounds
         self.currentRound = 0
-        self.maxPlayers = sum(len(deck.cards[expansion].white) for expansion in activeExpansions) // cfg.cardsPerHand
+        self.maxPlayers = sum(len(deck.unseenCards[expansion].white) for expansion in activeExpansions) // cfg.cardsPerHand
         self.waitingForSubmissions = False
         self.submissionsProgress = None
         self.deckUpdater: DeckUpdateRegistry = None
@@ -177,7 +177,7 @@ class SDBGame:
             if self.shutdownOverride:
                 return
             if cardSlot.isEmpty:
-                newCard = self.deck.randomWhite(self.expansionNames)
+                newCard = self.deck.popRandomWhite(self.expansionNames)
                 # while player.hasCard(newCard):
                 #     newCard = self.deck.randomWhite(self.expansionNames)
                 if newCard is None:
