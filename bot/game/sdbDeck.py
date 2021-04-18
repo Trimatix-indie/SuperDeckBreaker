@@ -36,7 +36,7 @@ def collect_cards(sheetLink):
 
 
 class SDBCard(ABC):
-    def __init__(self, text, url, expansion):
+    def __init__(self, text, url, expansion: "SDBExpansion"):
         self.url = url
         self.text = text
         self.expansion = expansion
@@ -87,6 +87,23 @@ class SDBExpansion:
     def allOwned(self):
         return self.ownedWhiteCards == len(self.white)
 
+    def emptyBoth(self):
+        self.white = []
+        self.black = []
+        self.ownedWhiteCards = 0
+
+    def emptyWhite(self):
+        self.white = []
+
+    def emptyBlack(self):
+        self.black = []
+
+    def whiteIsEmpty(self):
+        return self.white == []
+
+    def blackIsEmpty(self):
+        return self.black == []
+
 
 class SDBDeck:
     def __init__(self, metaPath: str):
@@ -97,7 +114,8 @@ class SDBDeck:
             raise RuntimeError("Attempted to create an empty SDBDeck")
 
         self.expansionNames: List[str] = list(deckMeta["expansions"].keys())
-        self.cards: Dict[str, SDBExpansion] = {expansion : SDBExpansion() for expansion in self.expansionNames}
+        self.unseenCards: Dict[str, SDBExpansion] = {expansion : SDBExpansion() for expansion in self.expansionNames}
+        self.seenCards: Dict[str, SDBExpansion] = {expansion : SDBExpansion() for expansion in self.expansionNames}
         self.name: str = deckMeta["deck_name"]
         hasWhiteCards: bool = False
         hasBlackCards: bool = False
@@ -105,55 +123,63 @@ class SDBDeck:
         for expansion in self.expansionNames:
             if "white" in deckMeta["expansions"][expansion]:
                 for cardData in deckMeta["expansions"][expansion]["white"]:
-                    self.cards[expansion].white.append(WhiteCard(cardData["text"], cardData["url"], self.cards[expansion]))
+                    self.unseenCards[expansion].white.append(WhiteCard(cardData["text"], cardData["url"], self.unseenCards[expansion]))
             if "black" in deckMeta["expansions"][expansion]:
                 for cardData in deckMeta["expansions"][expansion]["black"]:
-                    self.cards[expansion].black.append(BlackCard(cardData["text"], cardData["url"], cardData["requiredWhiteCards"], self.cards[expansion]))
+                    self.unseenCards[expansion].black.append(BlackCard(cardData["text"], cardData["url"], cardData["requiredWhiteCards"], self.unseenCards[expansion]))
 
             if not hasWhiteCards:
-                hasWhiteCards = len(self.cards[expansion].white) != 0
+                hasWhiteCards = len(self.unseenCards[expansion].white) != 0
             if not hasBlackCards:
-                hasBlackCards = len(self.cards[expansion].black) != 0
+                hasBlackCards = len(self.unseenCards[expansion].black) != 0
 
         if not hasWhiteCards:
             raise RuntimeError("Attempted to create a deck with no white cards")
         elif not hasBlackCards:
             raise RuntimeError("Attempted to create a deck with no black cards")
 
-        self.emptyBlack: BlackCard = BlackCard("EMPTY", deckMeta["black_back"] if "black_back" in deckMeta else cfg.emptyBlackCard, 0, list(self.cards.values())[0])
-        self.emptyWhite: WhiteCard = WhiteCard("EMPTY", deckMeta["white_back"] if "white_back" in deckMeta else cfg.emptyWhiteCard, list(self.cards.values())[0])
+        self.emptyBlack: BlackCard = BlackCard("EMPTY", deckMeta["black_back"] if "black_back" in deckMeta else cfg.emptyBlackCard, 0, list(self.unseenCards.values())[0])
+        self.emptyWhite: WhiteCard = WhiteCard("EMPTY", deckMeta["white_back"] if "white_back" in deckMeta else cfg.emptyWhiteCard, list(self.unseenCards.values())[0])
 
 
-    def randomWhite(self, expansions=[]):
+    def popRandomWhite(self, expansions=[]):
         if expansions == []:
             expansions = self.expansionNames
 
-        noWhiteCards = True
-        for expansion in expansions:
-            if len(self.cards[expansion].white) > 1:
-                noWhiteCards = False
-                break
-        if noWhiteCards:
-            raise ValueError("No white cards in any of the given expansions: " + ", ".join(expansions))
+        if False not in (self.unseenCards[expansion].whiteIsEmpty() for expansion in expansions):
+            if False in (self.seenCards[expansion].whiteIsEmpty() for expansion in expansions):
+                for expansion in self.expansionNames:
+                    self.unseenCards[expansion].white = self.seenCards[expansion].white
+                    self.seenCards[expansion].emptyWhite()
+                self.unseenCards[expansion].ownedWhiteCards = self.seenCards[expansion].ownedWhiteCards
+                self.seenCards[expansion].ownedWhiteCards = 0
+            else:
+                raise ValueError("No white cards in any of the given expansions, and no seen cards available for swap: " + ", ".join(expansions))
         
         noFreeCards = True
         for expansion in expansions:
-            if not self.cards[expansion].allOwned():
+            if not self.unseenCards[expansion].allOwned():
                 noFreeCards = False
                 break
         if noFreeCards:
-            botState.logger.log("SDBDeck", "randomWhite",
+            botState.logger.log("SDBDeck", "popRandomWhite",
                                 "All white cards are already owned in the given expansions: " + ", ".join(expansions),
                                 eventType="ALL_OWNED", trace=traceback.traceback.format_exc())
             return None
 
         expansion = random.choice(expansions)
-        while len(self.cards[expansion].white) == 0 or self.cards[expansion].allOwned():
+        while len(self.unseenCards[expansion].white) == 0 or self.unseenCards[expansion].allOwned():
             expansion = random.choice(expansions)
 
-        card = random.choice(self.cards[expansion].white)
+        card: WhiteCard = random.choice(self.unseenCards[expansion].white)
         while card.isOwned():
-            card = random.choice(self.cards[expansion].white)
+            card = random.choice(self.unseenCards[expansion].white)
+
+        card.expansion.ownedWhiteCards -= 1
+        card.expansion = self.seenCards[expansion]
+        card.expansion.ownedWhiteCards += 1
+        self.unseenCards[expansion].white.remove(card)
+        self.seenCards[expansion].white.append(card)
 
         return card
     
@@ -161,19 +187,25 @@ class SDBDeck:
     def randomBlack(self, expansions=[]):
         if expansions == []:
             expansions = self.expansionNames
-
-        noBlackCards = True
-        for expansion in expansions:
-            if len(self.cards[expansion].black) > 1:
-                noBlackCards = False
-        if noBlackCards:
-            raise ValueError("No black cards in any of the given expansions: " + ", ".join(expansions))
+        
+        if False not in (self.unseenCards[expansion].blackIsEmpty() for expansion in expansions):
+            if False in (self.seenCards[expansion].blackIsEmpty() for expansion in expansions):
+                for expansion in self.expansionNames:
+                    self.unseenCards[expansion].black = self.seenCards[expansion].black
+                    self.seenCards[expansion].emptyBlack()
+            else:
+                raise ValueError("No black cards in any of the given expansions, and no seen cards available for swap: " + ", ".join(expansions))
 
         expansion = random.choice(expansions)
-        while len(self.cards[expansion].black) == 0:
+        while len(self.unseenCards[expansion].black) == 0:
             expansion = random.choice(expansions)
 
-        return random.choice(self.cards[expansion].black)
+        card = random.choice(self.unseenCards[expansion].black)
+        card.expansion = self.seenCards[expansion]
+        self.unseenCards[expansion].black.remove(card)
+        self.seenCards[expansion].black.append(card)
+
+        return card
 
 
 async def updateDeck(callingMsg: Message, bGuild, deckName: str):
