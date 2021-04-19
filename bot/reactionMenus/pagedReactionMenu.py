@@ -2,7 +2,7 @@ from datetime import datetime
 import traceback
 from ..users import basedUser
 from .import reactionMenu, expiryFunctions
-from discord import Message, Member, Role, Embed, Colour
+from discord import Message, Member, Role, Embed, Colour, RawReactionActionEvent
 from .. import lib, botState
 from typing import Any, Dict, List
 from ..scheduling import timedTask
@@ -232,6 +232,12 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         # emoji = lib.emojis.BasedEmoji.fromReaction(reactPL.emoji, rejectInvalid=True)
 
         # _, user, emoji = await lib.discordUtil.reactionFromRaw(reactPL)
+        if self.targetMember is not None and reactPL.user_id != self.targetMember.id:
+            return False
+        
+        if reactPL.message_id != self.msg.id:
+            return False
+
         emoji = lib.emojis.BasedEmoji.fromReaction(reactPL.emoji, rejectInvalid=False)
         if self.msg.guild is None:
             user = botState.client.get_user(reactPL.user_id)
@@ -249,9 +255,6 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         if emoji not in self.pages[self.currentPage]:
             return False
 
-        if self.targetMember is not None and reactPL.user_id != self.targetMember.id:
-            return False
-
         if self.targetRole is not None:
             if None in [reactPL.guild_id, user] or self.targetRole not in user.roles:
                 return False
@@ -259,11 +262,21 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         return self.pages[self.currentPage][emoji] in self.returnTriggers
 
 
-    def reactionValid(self, reactPL):
+    def reactionValid(self, reactPL: RawReactionActionEvent):
+        if self.targetMember is not None and reactPL.user_id != self.targetMember.id:
+            return False
+
+        if reactPL.message_id != self.msg.id:
+            return False
+
         if reactPL.guild_id is None:
+            if self.targetRole is not None:
+                return False
             user = botState.client.get_user(reactPL.user_id)
         else:
             user = botState.client.get_guild(reactPL.guild_id).get_member(reactPL.user_id)
+            if self.targetRole is not None and (user is None or self.targetRole not in user.roles):
+                return False
             # if user is None:
             #     guild = await botState.client.fetch_guild(reactPL.guild_id)
             #     user = guild.get_member(reactPL.user_id)
@@ -277,21 +290,14 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         # _, user, emoji = await lib.discordUtil.reactionFromRaw(reactPL)
 
         if user is None:
-            botState.logger.log(type(self).__name__, "reactionClosesMenu", "Failed to get user #" + str(reactPL.user_id), category="reactionMenus", eventType="USRFAIL")
+            botState.logger.log(type(self).__name__, "reactionValid", "Failed to get user #" + str(reactPL.user_id), category="reactionMenus", eventType="USRFAIL")
             return False
         if emoji is None:
-            botState.logger.log(type(self).__name__, "reactionClosesMenu", "Failed to get emoji: " + str(reactPL.emoji), category="reactionMenus", eventType="EMOJIFAIL")
+            botState.logger.log(type(self).__name__, "reactionValid", "Failed to get emoji: " + str(reactPL.emoji), category="reactionMenus", eventType="EMOJIFAIL")
             return False
 
         if emoji not in self.pages[self.currentPage]:
             return False
-
-        if self.targetMember is not None and reactPL.user_id != self.targetMember.id:
-            return False
-
-        if self.targetRole is not None:
-            if None in [reactPL.guild_id, user] or self.targetRole not in user.roles:
-                return False
         
         # if reactPL.event_type == "REACTION_ADD":
         #     await self.reactionAdded(emoji, user)
