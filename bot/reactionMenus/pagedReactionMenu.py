@@ -314,7 +314,7 @@ class InlinePagedReactionMenu(PagedReactionMenu):
         while self.menuActive:
             try:
                 prev = datetime.utcnow()
-                reactPL = await lib.discordUtil.clientMultiWaitFor(["raw_reaction_add", "raw_reaction_remove"], timeoutLeft, check=self.reactionValid)
+                reactPL = await lib.discordUtil.clientMultiWaitFor(("raw_reaction_add", "raw_reaction_remove"), timeoutLeft, check=self.reactionValid)
                 # _, user, emoji = await lib.discordUtil.reactionFromRaw(reactPL)
                 try:
                     emoji = lib.emojis.BasedEmoji.fromReaction(reactPL.emoji, rejectInvalid=True)
@@ -325,7 +325,7 @@ class InlinePagedReactionMenu(PagedReactionMenu):
                 else:
                     user = self.msg.guild.get_member(reactPL.user_id)
                 if user is None:
-                    print("===============NONE USER")
+                    botState.logger.log(type(self).__name__, "doMenu", "Failed to find user for ID " + str(reactPL.user_id) + ((" in guild " + str(reactPL.guild_id)) if self.msg.guild is None else " in DMs"))
                     continue
 
                 if reactPL.event_type == "REACTION_ADD":

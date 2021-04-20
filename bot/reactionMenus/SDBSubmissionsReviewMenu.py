@@ -28,11 +28,11 @@ class InlineSDBSubmissionsReviewMenu(pagedReactionMenu.InlinePagedReactionMenu):
 
 
     def reactionClosesMenu(self, reactPL):
-        return (not self.chooserPlayer.isChooser) or super().reactionClosesMenu(reactPL)
+        return super().reactionClosesMenu(reactPL) or (not self.chooserPlayer.isChooser)
 
 
     def reactionValid(self, reactPL):
-        return (not self.chooserPlayer.isChooser) or super().reactionValid(reactPL)
+        return super().reactionValid(reactPL) or (not self.chooserPlayer.isChooser)
 
 
 class InlineSequentialSubmissionsReviewMenu(InlineSDBSubmissionsReviewMenu):
