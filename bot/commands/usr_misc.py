@@ -150,7 +150,7 @@ async def cmd_leaderboard(message : discord.Message, args : str, isDM : bool):
     # If at least one external use is on the leaderboard, give a key
     if externalUser:
         leaderboardEmbed.set_footer(
-            text="An `*` indicates a user that is from another server.")
+            text="An * indicates a user that is from another server.")
     # send the embed
     await message.channel.send(embed=leaderboardEmbed)
 
