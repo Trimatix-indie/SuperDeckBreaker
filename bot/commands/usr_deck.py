@@ -431,9 +431,9 @@ async def cmd_update_deck(message : discord.Message, args : str, isDM : bool):
         await message.channel.send(":x: Unknown deck: " + args)
         return
 
-    if callingBGuild.decks[args]["creator"] != message.author.id:
-        await message.channel.send(":x: You can only update decks that you own!")
-        return
+    # if callingBGuild.decks[args]["creator"] != message.author.id:
+    #     await message.channel.send(":x: You can only update decks that you own!")
+    #     return
 
     if callingBGuild.decks[args]["updating"]:
         await message.channel.send(":x: This deck is already being updated!")
