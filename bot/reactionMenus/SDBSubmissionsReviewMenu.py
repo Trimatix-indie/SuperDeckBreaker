@@ -12,6 +12,7 @@ from ..cardRenderer.lib import url_to_local_path, CARD_SIZE, local_file_url, IMG
 import io
 import os
 import shutil
+import random
 
 
 class SDBWinningSubmissionOption(reactionMenu.DummyReactionMenuOption):
@@ -43,8 +44,10 @@ class InlineSequentialSubmissionsReviewMenu(InlineSDBSubmissionsReviewMenu):
         returnTriggers = []
         numPlayers = len(game.players)
         winnerPassed = False
+        shuffledPlayers = list(tuple(p for p in game.players))
+        random.shuffle(shuffledPlayers)
         for playerNum in range(numPlayers):
-            player = game.players[playerNum]
+            player = shuffledPlayers[playerNum]
             if player.isChooser:
                 winnerPassed = True
             else:
@@ -149,8 +152,10 @@ def saveMergedPlayerSubmissionLocal(player, roundCardsDir, im):
 
 async def buildMergedSubmissionsMenuImages(game: "sdbGame.SDBGame") -> Dict[sdbPlayer.SDBPlayer, str]:
     mergedSubmissionImages = {}
+    shuffledPlayers = list(tuple(p for p in game.players))
+    random.shuffle(shuffledPlayers)
 
-    for player in game.players:
+    for player in shuffledPlayers:
         if not player.isChooser:
             mergedSubmissionImages[player] = await mergePlayerSubmissions(player)
     
