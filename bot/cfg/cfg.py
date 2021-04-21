@@ -50,7 +50,11 @@ timeouts = {
     # The time to wait for a new deck name message in cmd_rename
     "deckRenameSeconds": 180,
     # The minimum amount of time that must pass between updates of a specific deck
-    "deckUpdateCooldown": {"minutes": 2}
+    "deckUpdateCooldown": {"minutes": 2},
+    # The default amount of time a poll will run for
+    "defaultPollLength": {"minutes": 5},
+    # The maximum amount of time a poll can be configured to run for
+    "maxPollLength": {"days": 31}
 }
 
 paths = {

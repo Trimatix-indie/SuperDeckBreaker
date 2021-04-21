@@ -12,14 +12,16 @@ class BasedUser(serializable.Serializable):
     :vartype id: int
     """
 
-    def __init__(self, id: int, roundWins : int = 0, gameWins : int = 0):
+    def __init__(self, id: int, roundWins : int = 0, gameWins : int = 0, pollOwned : bool = False):
         """
         :param int id: The user's unique ID. The same as their unique discord ID.
         """
         self.id = id
+        # Not parameterised as help menus are not currently saveable
         self.helpMenuOwned = False
         self.roundWins = roundWins
         self.gameWins = gameWins
+        self.pollOwned = pollOwned
 
 
     def resetUser(self):
@@ -43,7 +45,7 @@ class BasedUser(serializable.Serializable):
         :return: A dictionary containing all information needed to recreate this user
         :rtype: dict
         """
-        return {"roundWins": self.roundWins, "gameWins": self.gameWins}
+        return {"roundWins": self.roundWins, "gameWins": self.gameWins, "pollOwned": self.pollOwned}
 
 
     def __str__(self) -> str:
@@ -71,4 +73,5 @@ class BasedUser(serializable.Serializable):
         userID = kwargs["id"]
 
         return BasedUser(userID, roundWins=userDict["roundWins"] if "roundWins" in userDict else 0,
-                            gameWins=userDict["gameWins"] if "gameWins" in userDict else 0)
+                            gameWins=userDict["gameWins"] if "gameWins" in userDict else 0,
+                            pollOwned=userDict["pollOwned"] if "pollOwned" in userDict else False)
