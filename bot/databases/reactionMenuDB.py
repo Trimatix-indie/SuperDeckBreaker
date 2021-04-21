@@ -1,5 +1,6 @@
 from .. import botState
 from ..reactionMenus import reactionMenu
+from discord import NotFound
 
 
 class ReactionMenuDB(dict):
@@ -62,15 +63,16 @@ async def fromDict(dbDict: dict) -> ReactionMenuDB:
                                     "Unrecognised channel in menu dict, ignoring and removing: " + menuDescriptor,
                                     category="reactionMenus", eventType="unknChannel")
                 continue
-
-        msg = await menuChannel.fetch_message(menuData["msg"])
-        if msg is None:
+        
+        try:
+            msg = await menuChannel.fetch_message(menuData["msg"])
+        except NotFound:
             botState.logger.log("reactionMenuDB", "fromDict",
                                 "Unrecognised message in menu dict, ignoring and removing: " + menuDescriptor,
                                 category="reactionMenus", eventType="unknMsg")
             continue
         
-        if not reactionMenu.isSaveableMenuTypeName(menuData["type"]):
+        if reactionMenu.isSaveableMenuTypeName(menuData["type"]):
             newDB[int(msgID)] = reactionMenu.saveableMenuClassFromName(menuData["type"]).fromDict(menuData, msg=msg)
         else:
             botState.logger.log("reactionMenuDB", "fromDict",

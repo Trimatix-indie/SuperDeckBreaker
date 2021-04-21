@@ -72,3 +72,22 @@ async def dev_cmd_say(message: discord.Message, args: str, isDM: bool):
         await message.channel.send(**lib.discordUtil.messageArgsFromStr(args))
 
 botCommands.register("say", dev_cmd_say, 3, forceKeepArgsCasing=True, allowDM=True, useDoc=True)
+
+
+async def dev_cmd_reset_has_poll(message : discord.Message, args : str, isDM : bool):
+    """developer command resetting the poll ownership of the calling user, or the specified user if one is given.
+
+    :param discord.Message message: the discord message calling the command
+    :param str args: string, can be empty or contain a user mention
+    :param bool isDM: Whether or not the command is being called from a DM channel
+    """
+    # reset the calling user's cooldown if no user is specified
+    if args == "":
+        botState.usersDB.getUser(message.author.id).pollOwned = False
+        # otherwise get the specified user's discord object and reset their cooldown.
+        # [!] no validation is done.
+    else:
+        botState.usersDB.getUser(int(args.lstrip("<@!").rstrip(">"))).pollOwned = False
+    await message.channel.send("Done!")
+
+botCommands.register("reset-has-poll", dev_cmd_reset_has_poll, 2, allowDM=True, useDoc=True)

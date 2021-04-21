@@ -1,10 +1,12 @@
+from asyncio.tasks import sleep
 from . import timedTask
 from heapq import heappop, heappush
 import inspect
 from types import FunctionType
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
+EMPTY_TIMEDELTA = timedelta(seconds=0)
 
 class TimedTaskHeap:
     """A min-heap of TimedTasks, sorted by task expiration time.
@@ -170,7 +172,7 @@ class AutoCheckingTimedTaskHeap(TimedTaskHeap):
         """
         while self.active:
             if len(self.tasksHeap) > 0:
-                sleepDelta = self.tasksHeap[0].expiryTime - datetime.utcnow()
+                sleepDelta = max(EMPTY_TIMEDELTA, self.tasksHeap[0].expiryTime - datetime.utcnow())
                 coro = asyncio.sleep(sleepDelta.total_seconds(), loop=self.loop)
                 self.sleepTask = asyncio.ensure_future(coro)
 
