@@ -445,12 +445,12 @@ async def on_message(message: discord.Message):
     # For any messages beginning with commandPrefix
     if message.content.lower().startswith(commandPrefix) and len(message.content) > len(commandPrefix):
         # replace special apostraphe characters with the universal '
-        msgContent = message.content.replace("‘", "'").replace("’", "'")
+        msgContent = message.content.replace("‘", "'").replace("’", "'")[len(commandPrefix):]
 
         # split the message into command and arguments
-        if len(msgContent[len(commandPrefix):]) > 0:
-            command = msgContent[len(commandPrefix):].split(" ")[0]
-            args = msgContent[len(commandPrefix) + len(command) + 1:]
+        if len(msgContent) > 0:
+            command = msgContent.split("\n")[0].split(" ")[0]
+            args = msgContent[len(command):].lstrip(" ")
         # if no command is given, ignore the message
         else:
             return

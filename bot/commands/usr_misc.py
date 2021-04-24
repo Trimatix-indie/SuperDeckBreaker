@@ -219,6 +219,9 @@ async def cmd_poll(message : discord.Message, args : str, isDM : bool):
                 await message.reply(":x: I don't know your " + str(argPos) + lib.stringTyping.getNumExtension(argPos) \
                                         + " emoji!\nYou can only use built in emojis, or custom emojis that are in this server.")
                 return
+            except TypeError:
+                await message.reply(":x: Invalid emoji: " + argSplit[1])
+                return
             else:
                 if dumbReact.sendable == "None":
                     await message.reply(":x: I don't know your " + str(argPos) + lib.stringTyping.getNumExtension(argPos) \
@@ -268,7 +271,7 @@ async def cmd_poll(message : discord.Message, args : str, isDM : bool):
                                         + "'\nPlease use either `multiplechoice=yes` or `multiplechoice=no`")
                 return
 
-        timeoutTD = lib.timeUtil.timeDeltaFromDict(timeoutDict if timeoutDict else cfg.timeouts.pollMenuExpiry)
+        timeoutTD = lib.timeUtil.timeDeltaFromDict(timeoutDict if timeoutDict else cfg.timeouts.defaultPollLength)
         maxTimeout = lib.timeUtil.timeDeltaFromDict(cfg.timeouts.maxPollLength)
         if timeoutTD > maxTimeout:
             await message.reply(":x: Invalid poll length! The maximum poll length is **" \
