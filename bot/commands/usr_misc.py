@@ -220,7 +220,7 @@ async def cmd_poll(message : discord.Message, args : str, isDM : bool):
                                         + " emoji!\nYou can only use built in emojis, or custom emojis that are in this server.")
                 return
             except TypeError:
-                await message.reply(":x: Invalid emoji: " + argSplit[1])
+                await message.reply(":x: Invalid emoji: " + argSplit[0])
                 return
             else:
                 if dumbReact.sendable == "None":
@@ -228,7 +228,7 @@ async def cmd_poll(message : discord.Message, args : str, isDM : bool):
                                                 + " emoji!\nYou can only use built in emojis, or custom emojis that are in this server.")
                     return
                 if dumbReact is None:
-                    await message.reply(":x: Invalid emoji: " + argSplit[1])
+                    await message.reply(":x: Invalid emoji: " + argSplit[0])
                     return
                 elif dumbReact.isID:
                     localEmoji = False
