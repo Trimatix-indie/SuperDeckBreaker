@@ -483,7 +483,7 @@ class SDBGame:
         if self.shutdownOverride:
             return False
         if self.rounds != -1:
-            return self.currentRound <= self.rounds
+            return self.currentRound < self.rounds
         else:
             confirmMsg = await self.channel.send("Play another round?")
             keepPlaying = await InlineConfirmationMenu(confirmMsg, self.owner, cfg.timeouts.keepPlayingMenuSeconds).doMenu()
